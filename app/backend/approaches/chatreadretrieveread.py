@@ -69,6 +69,7 @@ Search query:
         top = overrides.get("top") or 3
         exclude_category = overrides.get("exclude_category") or None
         filter = "category ne '{}'".format(exclude_category.replace("'", "''")) if exclude_category else None
+
         # STEP 1: Generate an optimized keyword search query based on the chat history and the last question
         prompt = self.query_prompt_template.format(chat_history=self.get_chat_history_as_text(history, include_last_turn=False), question=history[-1]["user"])
         completion = openai.Completion.create(
@@ -80,6 +81,7 @@ Search query:
             stop=["\n"])
         q = completion.choices[0].text
         print(q)
+
         # STEP 2: Retrieve relevant documents from the search index with the GPT optimized query
         if overrides.get("semantic_ranker"):
             r = self.search_client.search(q, 
@@ -127,3 +129,90 @@ Search query:
             if len(history_text) > approx_max_tokens*4:
                 break    
         return history_text
+
+class Approach1(ChatReadRetrieveReadApproach):
+   prompt_prefix = """<|im_start|>system
+商品に関する質問をサポートする教師アシスタントです。回答は簡潔にしてください。
+今から、flavor_scoreをもつ商品情報を入力しますので、
+与えられた商品の一覧情報から、flavor_scoreの最も近い商品を抽出し、
+# 出力フォーマットに従って商品名とflavor_scoreを出力してください。
+# 次の作業を順次行ってください。
+・入力された商品情報からflavor_scoreを取得してください
+・下記の商品一覧情報の中で、flavor_scoreの最も近いものを選んでください。
+・選んだ商品情報を、以下の出力フォーマットで示してください。
+＊ただし、出力するのは、# 出力フォーマットで示されている情報だけで結構です。
+途中の作業プロセスは出力に含めないでください。
+# 出力フォーマット
+商品名：flavor_score
+例）日本酒1：10
+
+# 入力商品情報
+｛ユーザーが入力｝
+{follow_up_questions_prompt}
+{injected_prompt}
+Sources:
+{sources}
+<|im_end|>
+{chat_history}
+
+"""
+
+follow_up_questions_prompt_content = """商品について、ユーザーが次に尋ねそうな非常に簡潔なフォローアップ質問を3つ作成する。
+    質問を参照するには、二重の角括弧を使用します（例：<<徳川家康とは何をした人ですか?>>）。
+    すでに聞かれた質問を繰り返さないようにしましょう。
+    質問のみを生成し、「次の質問」のような質問の前後にテキストを生成しない。"""
+
+query_prompt_template = """以下は、これまでの会話の履歴と、商品に関するナレッジベースを検索して回答する必要がある、ユーザーからの新しい質問です。
+    会話と新しい質問に基づいて、検索クエリを作成します。
+    検索クエリには、引用元のファイル名や文書名（info.txtやdoc.pdfなど）を含めないでください。
+    検索キーワードに[]または<<>>内のテキストを含めないでください。
+
+Chat History:
+{chat_history}
+
+Question:
+{question}
+
+Search query:
+"""
+
+class Approach2(ChatReadRetrieveReadApproach):
+    prompt_prefix = """<|im_start|>system
+あなたは文書を書いたり読んだりするプロです。
+以下の作業手順を実行してください。まずはユーザからの感性表現を待ちます。
+出力形式は# 出力形式にならって、結果として選ばれた商品情報だけを出力してください。
+途中の作業経過は出力不要です。
+
+# 作業
+・まずはユーザがカンマ区切りの感性表現を入力します。
+・次に感性表現を用いて100文字程度の作文をします。
+・100文字程度の文章と、商品情報の商品説明を比較し、最も調子が似ているものを選びます。
+・最後に、選ばれた商品情報一覧の中の商品情報を出力してください。
+
+# 出力形式
+商品名：
+商品説明：
+flavor_score
+"""
+    query_prompt_template = """以下は、これまでの会話の履歴と、商品に関するナレッジベースを検索して回答する必要がある、ユーザーからの新しい質問です。
+    会話と新しい質問に基づいて、検索クエリを作成します。
+    検索クエリには、引用元のファイル名や文書名（info.txtやdoc.pdfなど）を含めないでください。
+    検索キーワードに[]または<<>>内のテキストを含めないでください。
+
+Chat History:
+{chat_history}
+
+Question:
+{question}
+
+Search query:
+"""
+
+    follow_up_questions_prompt_content = """商品について、ユーザーが次に尋ねそうな非常に簡潔なフォローアップ質問を3つ作成する。
+    質問を参照するには、二重の角括弧を使用します（例：<<徳川家康とは何をした人ですか?>>）。
+    すでに聞かれた質問を繰り返さないようにしましょう。
+    質問のみを生成し、「次の質問」のような質問の前後にテキストを生成しない。"""
+
+class Approach3(ChatReadRetrieveReadApproach):
+    prompt_prefix = """Approach3 specific content here..."""
+    query_prompt_template = """Approach3 query template here..."""
