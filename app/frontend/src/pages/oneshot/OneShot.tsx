@@ -37,6 +37,7 @@ const OneShot = () => {
         setIsLoading(true);
         setActiveCitation(undefined);
         setActiveAnalysisPanelTab(undefined);
+        console.dir(approach);
 
         try {
             const request: AskRequest = {
@@ -120,7 +121,7 @@ const OneShot = () => {
             text: "Retrieve-Then-Read"
         },
         {
-            key: Approaches.ReadRetrieveRead,
+            key: Approaches.ChatReadRetrieveRead,
             text: "Read-Retrieve-Read"
         },
         {
@@ -200,7 +201,7 @@ const OneShot = () => {
                     />
                 )}
 
-                {approach === Approaches.ReadRetrieveRead && (
+                {approach === Approaches.ChatReadRetrieveRead && (
                     <>
                         <TextField
                             className={styles.oneshotSettingsSeparator}
